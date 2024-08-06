@@ -5,7 +5,6 @@ import {FunctionsClient} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/Fu
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 
-
 contract CropInsurance is FunctionsClient, ConfirmedOwner {
     using FunctionsRequest for FunctionsRequest.Request;
 
@@ -32,19 +31,17 @@ contract CropInsurance is FunctionsClient, ConfirmedOwner {
     uint32 private gasLimit;
 
     string private constant SOURCE =
-    "const fetchWeatherData = async (city) => {const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`);const { lat, lon } = (await geoRes.json())[0];const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation&start=${new Date().toISOString().split('T')[0]}&timezone=auto`);const data = await weatherRes.json();let consecutiveRainHours = 0;for (const rain of data.hourly.precipitation) {consecutiveRainHours = rain >= 1 ? consecutiveRainHours + 1 : 0;if (consecutiveRainHours >= 30) return 'Damage';}return 'No Damage';};const city = args[0];return await fetchWeatherData(city);";
+        "const fetchWeatherData = async (city) => {const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`);const { lat, lon } = (await geoRes.json())[0];const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation&start=${new Date().toISOString().split('T')[0]}&timezone=auto`);const data = await weatherRes.json();let consecutiveRainHours = 0;for (const rain of data.hourly.precipitation) {consecutiveRainHours = rain >= 1 ? consecutiveRainHours + 1 : 0;if (consecutiveRainHours >= 30) return 'Damage';}return 'No Damage';};const city = args[0];return await fetchWeatherData(city);";
 
     event PolicyCreated(address indexed farmer, uint256 coverageAmount, uint256 insuranceAmount, string location);
     event ClaimRequested(address indexed farmer, bool claimed);
     event ClaimFulfilled(address indexed farmer, uint256 amount);
     event RequestFailed(bytes error);
 
-    constructor(
-        address router,
-        bytes32 _donID,
-        uint64 _subscriptionId,
-        uint32 _gasLimit
-    ) FunctionsClient(router) ConfirmedOwner(msg.sender) {
+    constructor(address router, bytes32 _donID, uint64 _subscriptionId, uint32 _gasLimit)
+        FunctionsClient(router)
+        ConfirmedOwner(msg.sender)
+    {
         donID = _donID;
         subscriptionId = _subscriptionId;
         gasLimit = _gasLimit;
@@ -75,25 +72,23 @@ contract CropInsurance is FunctionsClient, ConfirmedOwner {
     }
 
     function requestClaim() external {
-    Policy storage policy = policies[msg.sender];
-    if (!policy.isActive) {
-        revert CropInsurance_NotActive();
-    }
-    if (policy.isClaimed) {
-        revert CropInsurance_AlreadyClaimed();
-    }
-    policy.isClaimed = true;
+        Policy storage policy = policies[msg.sender];
+        if (!policy.isActive) {
+            revert CropInsurance_NotActive();
+        }
+        if (policy.isClaimed) {
+            revert CropInsurance_AlreadyClaimed();
+        }
+        policy.isClaimed = true;
 
-   
-    string[] memory args = new string[](1);
-    args[0] = policy.location;
+        string[] memory args = new string[](1);
+        args[0] = policy.location;
 
-   
-    bytes32 requestId = _sendChainlinkRequest(args);
+        bytes32 requestId = _sendChainlinkRequest(args);
 
-    requestIdToFarmer[requestId] = msg.sender;
+        requestIdToFarmer[requestId] = msg.sender;
 
-    emit ClaimRequested(msg.sender, true);
+        emit ClaimRequested(msg.sender, true);
     }
 
     function _sendChainlinkRequest(string[] memory args) internal returns (bytes32 requestId) {
